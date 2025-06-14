@@ -1,0 +1,362 @@
+{
+  "name": "AI Powered LinkedIn Posting - Insta Share",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert LinkedIn content creator. Using the topic {{ $json.text }}, write a single paragraph that positions me as a thought leader and always adds fresh value. Include:\n- A strong hook\n- A 2–3 sentence summary\n- A thought-provoking call-to-action\n\nOutput **only** a JSON object matching the schema below (no markdown fences, no extra keys).\n",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        -300,
+        -60
+      ],
+      "id": "d55761a1-f76a-47c2-a26b-9898f8bb5c75",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"post\": {\n      \"type\": \"string\",\n      \"description\": \"Full LinkedIn post text—hook, summary, and CTA; do not include hashtags here\"\n    },\n    \"hashtags\": {\n      \"type\": \"array\",\n      \"items\": { \"type\": \"string\" },\n      \"description\": \"A list of relevant hashtags\"\n    }\n  },\n  \"required\": [\"post\", \"hashtags\"],\n  \"additionalProperties\": false\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -120,
+        160
+      ],
+      "id": "a8b8bd8f-3559-4817-9cc5-3e563056c36b",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=Digital+Marketing&hl=en-US&gl=US&ceid=US:en",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        -1500,
+        -60
+      ],
+      "id": "c4b61a97-e452-4596-97fa-7c14a583b1cf",
+      "name": "RSS Read"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * MON"
+            },
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * TUE"
+            },
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * WED"
+            },
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * THU"
+            },
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * FRI"
+            },
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * SAT"
+            },
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * SUN"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1780,
+        -60
+      ],
+      "id": "f16d4634-5dda-48bd-8b56-2e5e64394cfc",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e8002510-9eec-43f5-8bcc-a1d72cc7f646",
+              "leftValue": "={{ DateTime.fromFormat($json.pubDate, \"ccc, dd LLL yyyy HH:mm:ss z\", { zone: 'utc' }).toFormat('yyyy-MM-dd') }}\n",
+              "rightValue": "={{ $now.minus({ days: 1 }).toFormat('yyyy-MM-dd') }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "afterOrEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1200,
+        -60
+      ],
+      "id": "fa9b742e-c3c0-4daa-bea1-4529f9a3ad65",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "title"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -900,
+        -60
+      ],
+      "id": "0f475766-3843-4ba4-90d6-f1d793d608f9",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You’re an expert LinkedIn content strategist. Here’s a list of potential post topics—select and return only one title that’s the most engaging and appropriate for LinkedIn. If none of them work, reply with exactly no. Avoid any controversial, legal, or sensitive subjects.\n\n\n{{ $json.title }}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        -680,
+        -60
+      ],
+      "id": "3f95ace5-de56-46a1-9490-c6a9f496973b",
+      "name": "Basic LLM Chain1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The 'items' variable in the Code node context already holds the array of input items.\nconst outputItems = [];\n\nfor (const inputItem of items) { // Corrected: Iterate over 'items'\n  // Get the hashtags array from the current item's 'json' data.\n  // Assuming 'hashtags' is directly under 'output' in the JSON structure.\n  const hashtagsArray = inputItem.json.output?.hashtags; // Access via inputItem.json\n\n  let formattedHashtags = '';\n\n  // Check if it's an array and contains elements.\n  if (Array.isArray(hashtagsArray) && hashtagsArray.length > 0) {\n    // Ensure each tag starts with '#' and then join them with a space.\n    formattedHashtags = hashtagsArray\n      .map(tag => (tag.startsWith('#') ? tag : `#${tag}`))\n      .join(' ');\n  } else {\n    // Handle cases where it might not be an array, is null/undefined, or is empty.\n    // console.warn(\"Input 'hashtags' is not a valid array or is empty for item:\", inputItem);\n    // You might want to log more details for debugging, but keep it concise for production\n  }\n\n  // Create the output item, keeping all original data and adding the new field.\n  outputItems.push({\n    json: {\n      ...inputItem.json, // Keep all original data from the current item's JSON\n      formattedHashtags: formattedHashtags\n    }\n  });\n}\n\n// Return an array of items for the next node in the workflow.\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        -60
+      ],
+      "id": "81d42a04-5672-44c5-9dd3-2945b93cd0cb",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7a72d485-ab0a-492e-b669-0969be3f86f6",
+              "leftValue": "={{ $json.output.post }}",
+              "rightValue": "=",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        60,
+        -60
+      ],
+      "id": "f7d8ba3b-bc42-40dd-ba5c-8813fde94b0d",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "content": "Create and Link AI model with both basic llm chains",
+        "height": 560,
+        "width": 720
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -720,
+        -220
+      ],
+      "typeVersion": 1,
+      "id": "c280917d-1f22-42d6-9693-4566d8ee4002",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Create a linkdin node here. and connect it with your instagram account. In text (create post). add below:\n\n{{ $('Code').item.json.output.post }}\n\n{{ $('Code').item.json.formattedHashtags }}",
+        "height": 300,
+        "width": 480
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        460,
+        -180
+      ],
+      "typeVersion": 1,
+      "id": "e495bd2f-2cf8-47b6-91fb-b0869b239e19",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "Modify the search query for google news based on your industry and prefrences. ",
+        "height": 280
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1560,
+        -160
+      ],
+      "typeVersion": 1,
+      "id": "947e57d0-99ec-4b65-9c8a-c766db3d76d7",
+      "name": "Sticky Note2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain1": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        []
+      ]
+    },
+    "If1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3c96ddd9-1efb-449b-acb1-f5630182fcc7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f388c8a4c2521177c500a1606bebb03dee36369bcf577a97531a3d638f9c0e4a"
+  },
+  "id": "n9IVziAvDANfDCzg",
+  "tags": []
+}
